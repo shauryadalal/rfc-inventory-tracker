@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFC Inventory Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Jost:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════
+   CSS VARIABLES — dark (default) + light mode
+═══════════════════════════════════════════════ */
+:root {
+  --bg:        #1a1714;
+  --panel:     #111018;
+  --border:    #2a2520;
+  --input-bg:  #1a1714;
+  --input2:    #111018;
+  --gold:      #C9A84C;
+  --gold2:     #E8D197;
+  --text:      #e8ddd0;
+  --muted:     #7a6e64;
+  --muted2:    #4a3f35;
+  --hover-bg:  #1d1b10;
+  --rec-sep:   #1a1714;
+  --status-ordered-bg:   #2a2520;
+  --status-ordered-c:    #7a6e64;
+  --status-inhand-bg:    #0e1e2a;
+  --status-inhand-c:     #5a9ec9;
+  --status-insetting-bg: #2a1e0a;
+  --status-insetting-c:  #c9a84c;
+  --status-sold-bg:      #0a2014;
+  --status-sold-c:       #4caa74;
+}
+body.light {
+  --bg:        #f0ede8;
+  --panel:     #faf8f5;
+  --border:    #d4c9bb;
+  --input-bg:  #ffffff;
+  --input2:    #f5f2ed;
+  --gold:      #9a7a2a;
+  --gold2:     #7a5e1a;
+  --text:      #1a1410;
+  --muted:     #6b5e50;
+  --muted2:    #9a8878;
+  --hover-bg:  #ede8df;
+  --rec-sep:   #e8e0d4;
+  --status-ordered-bg:   #e8e0d4;
+  --status-ordered-c:    #7a6e64;
+  --status-inhand-bg:    #daeaf5;
+  --status-inhand-c:     #2a6e9a;
+  --status-insetting-bg: #f5e8c8;
+  --status-insetting-c:  #8a5a00;
+  --status-sold-bg:      #d4ead8;
+  --status-sold-c:       #1a6a34;
+}
+
+/* ── BASE ── */
+* { box-sizing: border-box; }
+body {
+  margin: 0; font-family: 'Jost', sans-serif;
+  background: var(--bg); color: var(--text);
+  transition: background .2s, color .2s;
+}
+
+/* ── PANEL ── */
+#panel {
+  position: fixed; top: 0; left: 0; width: 370px; height: 100vh;
+  background: var(--panel); border-right: 2px solid var(--border);
+  overflow-y: auto; padding: 22px; z-index: 100;
+  transition: background .2s, border-color .2s;
+}
+
+/* ── PANEL HEADER ── */
+.panel-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+#panel h2 { font-family: 'Cormorant Garamond', serif; font-size: 24px; color: var(--gold); margin: 0; font-weight: 600; }
+#panel .sub { font-size: 10px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 16px; }
+#mode-toggle {
+  background: none; border: 1.5px solid var(--border); border-radius: 20px;
+  padding: 5px 10px; cursor: pointer; font-size: 13px; color: var(--muted);
+  transition: all .2s; flex-shrink: 0; margin-top: 2px;
+}
+#mode-toggle:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── STATS TILES ── */
+.stats-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 18px;
+}
+.stat-tile {
+  background: var(--input-bg); border: 1.5px solid var(--border); border-radius: 7px;
+  padding: 10px 12px; transition: border-color .2s;
+}
+.stat-tile:hover { border-color: var(--muted2); }
+.stat-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-weight: 500; margin-bottom: 5px; }
+.stat-value { font-family: 'Cormorant Garamond', serif; font-size: 18px; color: var(--gold); font-weight: 600; line-height: 1; }
+.stat-value.green { color: #4caa74; }
+.stat-sub { font-size: 9px; color: var(--muted2); margin-top: 3px; }
+
+/* ── SECTION TITLES ── */
+.section-title {
+  font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold);
+  margin: 20px 0 12px; padding-bottom: 7px; border-bottom: 1.5px solid var(--border);
+  user-select: none; font-weight: 600;
+}
+
+/* ── FIELD GROUPS ── */
+.field-group { margin-bottom: 12px; }
+.field-group label {
+  display: block; font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 6px; font-weight: 500;
+}
+.field-group input,
+.field-group textarea,
+.field-group select {
+  width: 100%; background: var(--input-bg);
+  border: 1.5px solid var(--border); border-radius: 5px; color: var(--text);
+  font-family: 'Jost', sans-serif; font-size: 13px; font-weight: 400;
+  padding: 9px 11px; outline: none; transition: border-color .2s, background .2s;
+}
+.field-group input:focus,
+.field-group textarea:focus,
+.field-group select:focus { border-color: var(--gold); }
+.field-group textarea { resize: vertical; min-height: 52px; }
+.field-group select option { background: var(--panel); color: var(--text); }
+.field-group input[readonly] {
+  color: var(--gold); font-weight: 600; cursor: default;
+}
+.field-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; margin-bottom: 12px; }
+.field-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 12px; }
+.field-row-3 label,
+.field-row-2 label {
+  display: block; font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 6px; font-weight: 500;
+}
+.field-row-3 input,
+.field-row-3 select,
+.field-row-2 input,
+.field-row-2 select {
+  width: 100%; background: var(--input-bg);
+  border: 1.5px solid var(--border); border-radius: 5px; color: var(--text);
+  font-family: 'Jost', sans-serif; font-size: 12px; padding: 8px 9px;
+  outline: none; transition: border-color .2s;
+}
+.field-row-3 input:focus,
+.field-row-3 select:focus,
+.field-row-2 input:focus,
+.field-row-2 select:focus { border-color: var(--gold); }
+.field-row-3 select option,
+.field-row-2 select option { background: var(--panel); }
+.field-row-3 input[readonly],
+.field-row-2 input[readonly] { color: var(--gold); font-weight: 600; cursor: default; }
+
+/* ── CONDITIONAL FIELDS ── */
+.cond-field { display: none; }
+.cond-field.visible { display: block; }
+
+/* ── BUTTONS ── */
+.action-row { display: flex; gap: 8px; margin-top: 16px; }
+.clear-btn {
+  flex: 1; padding: 12px 6px; background: none; border: 1.5px solid var(--border);
+  border-radius: 7px; color: var(--muted); font-family: 'Jost', sans-serif;
+  font-size: 10px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer;
+  transition: all .2s; font-weight: 500;
+}
+.clear-btn:hover { border-color: var(--muted); color: var(--text); }
+.save-btn {
+  flex: 2; padding: 12px 6px; background: var(--gold); border: none;
+  border-radius: 7px; color: #111018; font-family: 'Jost', sans-serif;
+  font-size: 10px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer;
+  transition: background .2s; font-weight: 700;
+  box-shadow: 0 2px 8px rgba(201,168,76,.25);
+}
+.save-btn:hover { background: var(--gold2); }
+
+/* ── EXPORT BTN ── */
+.export-btn {
+  width: 100%; padding: 10px; background: none; border: 1.5px solid var(--border);
+  border-radius: 6px; color: var(--muted); font-family: 'Jost', sans-serif;
+  font-size: 10px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer;
+  transition: all .2s; font-weight: 500; margin-top: 10px;
+}
+.export-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ══════════════════════════════════════════
+   MAIN AREA
+══════════════════════════════════════════ */
+#main {
+  margin-left: 370px; padding: 28px 32px;
+  min-height: 100vh;
+}
+
+/* ── MAIN HEADER ── */
+.main-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 22px;
+}
+.main-title {
+  font-family: 'Cormorant Garamond', serif; font-size: 28px;
+  color: var(--gold); font-weight: 600;
+}
+.main-sub { font-size: 10px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; margin-top: 3px; }
+
+/* ── FILTER BAR ── */
+.filter-bar {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 18px; flex-wrap: wrap;
+}
+.filter-tabs { display: flex; gap: 5px; }
+.tab-btn {
+  padding: 7px 14px; background: none; border: 1.5px solid var(--border);
+  border-radius: 20px; color: var(--muted); font-family: 'Jost', sans-serif;
+  font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer;
+  transition: all .2s; font-weight: 500;
+}
+.tab-btn.active { border-color: var(--gold); color: var(--gold); background: var(--hover-bg); font-weight: 600; }
+.tab-btn:hover:not(.active) { border-color: var(--muted); color: var(--text); }
+.filter-select {
+  background: var(--input-bg); border: 1.5px solid var(--border); border-radius: 20px;
+  color: var(--muted); font-family: 'Jost', sans-serif; font-size: 10px;
+  letter-spacing: 1.5px; text-transform: uppercase; padding: 7px 14px;
+  cursor: pointer; outline: none; transition: border-color .2s;
+}
+.filter-select:focus { border-color: var(--gold); }
+.filter-select option { background: var(--panel); text-transform: none; }
+.search-input {
+  flex: 1; min-width: 160px; background: var(--input-bg);
+  border: 1.5px solid var(--border); border-radius: 20px; color: var(--text);
+  font-family: 'Jost', sans-serif; font-size: 12px; padding: 7px 16px;
+  outline: none; transition: border-color .2s;
+}
+.search-input:focus { border-color: var(--gold); }
+.search-input::placeholder { color: var(--muted2); }
+
+/* ── TABLE ── */
+.table-wrap {
+  background: var(--panel); border: 1.5px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+table {
+  width: 100%; border-collapse: collapse;
+}
+thead tr {
+  background: var(--input2); border-bottom: 2px solid var(--border);
+}
+thead th {
+  font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--muted); font-weight: 600; padding: 11px 14px; text-align: left;
+}
+thead th.right { text-align: right; }
+thead th.center { text-align: center; }
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background .15s;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--hover-bg); }
+tbody td {
+  padding: 11px 14px; font-size: 12px; color: var(--text);
+  vertical-align: middle;
+}
+tbody td.right { text-align: right; }
+tbody td.center { text-align: center; }
+.td-id { font-size: 11px; color: var(--muted); font-weight: 500; }
+.td-cut { font-family: 'Cormorant Garamond', serif; font-size: 14px; font-weight: 500; }
+.td-grade { font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+.td-cost { font-size: 12px; font-weight: 500; }
+.td-setting { font-size: 11px; color: var(--muted); }
+
+/* ── STATUS PILLS ── */
+.pill {
+  display: inline-block; padding: 3px 10px; border-radius: 12px;
+  font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;
+  white-space: nowrap;
+}
+.pill-ordered   { background: var(--status-ordered-bg);   color: var(--status-ordered-c); }
+.pill-inhand    { background: var(--status-inhand-bg);    color: var(--status-inhand-c); }
+.pill-insetting { background: var(--status-insetting-bg); color: var(--status-insetting-c); }
+.pill-sold      { background: var(--status-sold-bg);      color: var(--status-sold-c); }
+
+/* ── ACTION ICONS ── */
+.actions { display: flex; gap: 6px; justify-content: center; }
+.icon-btn {
+  background: none; border: 1.5px solid var(--border); border-radius: 5px;
+  width: 28px; height: 28px; cursor: pointer; font-size: 13px; color: var(--muted);
+  display: flex; align-items: center; justify-content: center; transition: all .15s;
+}
+.icon-btn.edit:hover  { border-color: var(--gold); color: var(--gold); }
+.icon-btn.del:hover   { border-color: #c07070; color: #c07070; }
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  padding: 60px 20px; text-align: center; color: var(--muted);
+}
+.empty-state .empty-icon { font-size: 32px; margin-bottom: 12px; opacity: .4; }
+.empty-state p { font-size: 12px; letter-spacing: 1px; }
+
+/* ── MARGIN INDICATOR ── */
+.margin-pos { color: #4caa74; font-weight: 600; }
+.margin-neg { color: #c07070; font-weight: 600; }
+.margin-na  { color: var(--muted2); }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     LEFT PANEL
+══════════════════════════════════════════ -->
+<div id="panel">
+  <div class="panel-header">
+    <h2>✦ RFC Inventory</h2>
+    <button id="mode-toggle" onclick="toggleMode()">☀︎</button>
+  </div>
+  <div class="sub">Rare Fancy Cuts &nbsp;·&nbsp; Stone Tracker</div>
+
+  <!-- Summary stats -->
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-tile">
+      <div class="stat-label">Stones</div>
+      <div class="stat-value" id="stat-total">—</div>
+      <div class="stat-sub" id="stat-total-sub">in inventory</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Inv. Value</div>
+      <div class="stat-value" id="stat-inv-val">—</div>
+      <div class="stat-sub">unsold cost (INR)</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Sold Value</div>
+      <div class="stat-value green" id="stat-sold-val">—</div>
+      <div class="stat-sub" id="stat-sold-sub">revenue</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Avg Margin</div>
+      <div class="stat-value" id="stat-margin">—</div>
+      <div class="stat-sub">on sold stones</div>
+    </div>
+  </div>
+
+  <!-- Form -->
+  <div class="section-title" id="form-title">Add Stone</div>
+
+  <div class="field-group">
+    <label>Stone ID</label>
+    <input type="text" id="f-id" readonly placeholder="Auto-assigned">
+  </div>
+
+  <div class="field-group">
+    <label>Cut</label>
+    <select id="f-cut" onchange="onCutChange()">
+      <option value="Portuguese">Portuguese Cut</option>
+      <option value="Criss">Criss Cut</option>
+      <option value="Ashoka">Ashoka Cut</option>
+      <option value="Dutch Marquise">Dutch Marquise</option>
+      <option value="Other">Other</option>
+    </select>
+  </div>
+  <div class="field-group cond-field" id="f-cut-detail-wrap">
+    <label>Cut Detail</label>
+    <input type="text" id="f-cut-detail" placeholder="e.g. Old Mine, Hexagon…">
+  </div>
+
+  <div class="field-row-3">
+    <div>
+      <label>Weight (ct)</label>
+      <input type="number" id="f-weight" step="0.01" min="0" placeholder="2.00" oninput="calcCost()">
+    </div>
+    <div>
+      <label>Color</label>
+      <select id="f-color">
+        <option value="D">D</option>
+        <option value="E" selected>E</option>
+        <option value="F">F</option>
+        <option value="G">G</option>
+        <option value="H">H</option>
+      </select>
+    </div>
+    <div>
+      <label>Clarity</label>
+      <select id="f-clarity">
+        <option value="IF">IF</option>
+        <option value="VVS1">VVS1</option>
+        <option value="VVS2">VVS2</option>
+        <option value="VS1" selected>VS1</option>
+        <option value="VS2">VS2</option>
+        <option value="SI1">SI1</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="field-row-3">
+    <div>
+      <label>$/ct (USD)</label>
+      <input type="number" id="f-cost-usd" step="1" min="0" placeholder="190" oninput="calcCost()">
+    </div>
+    <div>
+      <label>USD→INR</label>
+      <input type="number" id="f-rate" value="83" step="0.1" oninput="calcCost()">
+    </div>
+    <div>
+      <label>Total (INR)</label>
+      <input type="text" id="f-total-inr" readonly placeholder="—">
+    </div>
+  </div>
+
+  <div class="field-row-2">
+    <div>
+      <label>Cert #</label>
+      <input type="text" id="f-cert-num" placeholder="e.g. IGI 12345">
+    </div>
+    <div>
+      <label>Cert Type</label>
+      <select id="f-cert-type">
+        <option value="IGI">IGI</option>
+        <option value="AIGS">AIGS</option>
+        <option value="GIA">GIA</option>
+        <option value="None">None</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="field-group">
+    <label>Status</label>
+    <select id="f-status" onchange="onStatusChange()">
+      <option value="Ordered">Ordered</option>
+      <option value="In Hand">In Hand</option>
+      <option value="In Setting">In Setting</option>
+      <option value="Sold">Sold</option>
+    </select>
+  </div>
+
+  <div class="field-group">
+    <label>Location</label>
+    <input type="text" id="f-location" placeholder="e.g. Udaipur Boutique">
+  </div>
+
+  <!-- Setting type — visible when not Ordered -->
+  <div class="field-group cond-field" id="f-setting-wrap">
+    <label>Setting Type</label>
+    <select id="f-setting">
+      <option value="Solitaire Ring">Solitaire Ring</option>
+      <option value="Stud Earrings">Stud Earrings</option>
+      <option value="Pendant">Pendant</option>
+      <option value="Other">Other</option>
+      <option value="">— Not set —</option>
+    </select>
+  </div>
+
+  <!-- Sold fields — visible only when Sold -->
+  <div class="cond-field" id="f-sold-wrap">
+    <div class="field-group">
+      <label>Sold Price (INR)</label>
+      <input type="number" id="f-sold-price" step="100" min="0" placeholder="35000" oninput="calcCost()">
+    </div>
+    <div class="field-row-2">
+      <div>
+        <label>Sold Date</label>
+        <input type="date" id="f-sold-date">
+      </div>
+      <div>
+        <label>Customer</label>
+        <input type="text" id="f-customer" placeholder="Name">
+      </div>
+    </div>
+    <div class="field-group">
+      <label>Margin</label>
+      <input type="text" id="f-margin-display" readonly placeholder="—">
+    </div>
+  </div>
+
+  <div class="field-group">
+    <label>Notes</label>
+    <textarea id="f-notes" placeholder="Internal notes…" style="min-height:52px"></textarea>
+  </div>
+
+  <div class="action-row">
+    <button class="clear-btn" onclick="clearForm()">✦ Clear</button>
+    <button class="save-btn" onclick="saveStone()">↓ &nbsp;Save Stone</button>
+  </div>
+
+  <button class="export-btn" onclick="exportCSV()">↓ &nbsp;Export All as CSV</button>
+
+  <!-- editing indicator -->
+  <div id="edit-hint" style="display:none; font-size:10px; color:var(--gold); text-align:center; margin-top:10px; letter-spacing:1px;">
+    Editing stone — Save to update
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MAIN AREA
+══════════════════════════════════════════ -->
+<div id="main">
+  <div class="main-header">
+    <div>
+      <div class="main-title">Stone Inventory</div>
+      <div class="main-sub">Rare Fancy Cuts &nbsp;·&nbsp; Curio by Anjali Design Studio</div>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="filter-tabs">
+      <button class="tab-btn active" data-status="All" onclick="setTab(this)">All</button>
+      <button class="tab-btn" data-status="Ordered" onclick="setTab(this)">Ordered</button>
+      <button class="tab-btn" data-status="In Hand" onclick="setTab(this)">In Hand</button>
+      <button class="tab-btn" data-status="In Setting" onclick="setTab(this)">In Setting</button>
+      <button class="tab-btn" data-status="Sold" onclick="setTab(this)">Sold</button>
+    </div>
+    <select class="filter-select" id="cut-filter" onchange="renderTable()">
+      <option value="">All Cuts</option>
+      <option value="Portuguese">Portuguese</option>
+      <option value="Criss">Criss</option>
+      <option value="Ashoka">Ashoka</option>
+      <option value="Dutch Marquise">Dutch Marquise</option>
+      <option value="Other">Other</option>
+    </select>
+    <input class="search-input" id="search-input" type="text" placeholder="Search ID, cut, customer…" oninput="renderTable()">
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Cut</th>
+          <th>Weight</th>
+          <th>Grade</th>
+          <th class="right">Cost (INR)</th>
+          <th class="center">Status</th>
+          <th>Setting</th>
+          <th class="right">Sold Price</th>
+          <th class="right">Margin</th>
+          <th class="center">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="table-body">
+      </tbody>
+    </table>
+    <div class="empty-state" id="empty-state" style="display:none">
+      <div class="empty-icon">◇</div>
+      <p>No stones match the current filter</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+const STORAGE_KEY = 'rfc_stones';
+let stones = [];
+let editingId = null;
+let activeTab = 'All';
+
+function load() {
+  try {
+    stones = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  } catch(e) { stones = []; }
+}
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stones));
+}
+
+/* ══════════════════════════════════════════
+   ID GENERATION
+══════════════════════════════════════════ */
+function nextId() {
+  if (!stones.length) return 'RFC-001';
+  const nums = stones.map(s => {
+    const m = s.id.match(/RFC-(\d+)/);
+    return m ? parseInt(m[1], 10) : 0;
+  });
+  const next = Math.max(...nums) + 1;
+  return 'RFC-' + String(next).padStart(3, '0');
+}
+
+/* ══════════════════════════════════════════
+   FORM — COMPUTED COST
+══════════════════════════════════════════ */
+function calcCost() {
+  const w    = parseFloat(document.getElementById('f-weight').value)    || 0;
+  const usd  = parseFloat(document.getElementById('f-cost-usd').value)  || 0;
+  const rate = parseFloat(document.getElementById('f-rate').value)      || 83;
+  const total = Math.round(w * usd * rate);
+  document.getElementById('f-total-inr').value = total > 0 ? '₹' + fmt(total) : '';
+
+  // margin if Sold
+  const soldPrice = parseFloat(document.getElementById('f-sold-price').value) || 0;
+  const mEl = document.getElementById('f-margin-display');
+  if (soldPrice > 0 && total > 0) {
+    const margin = ((soldPrice - total) / soldPrice * 100).toFixed(1);
+    mEl.value = (margin >= 0 ? '+' : '') + margin + '%';
+    mEl.style.color = margin >= 0 ? '#4caa74' : '#c07070';
+  } else {
+    mEl.value = '';
+    mEl.style.color = '';
+  }
+}
+
+/* ══════════════════════════════════════════
+   FORM — CONDITIONAL VISIBILITY
+══════════════════════════════════════════ */
+function onStatusChange() {
+  const status = document.getElementById('f-status').value;
+  toggle('f-setting-wrap', status !== 'Ordered');
+  toggle('f-sold-wrap',    status === 'Sold');
+  calcCost();
+}
+function onCutChange() {
+  toggle('f-cut-detail-wrap', document.getElementById('f-cut').value === 'Other');
+}
+function toggle(id, show) {
+  document.getElementById(id).classList.toggle('visible', show);
+}
+
+/* ══════════════════════════════════════════
+   SAVE
+══════════════════════════════════════════ */
+function saveStone() {
+  const cut    = document.getElementById('f-cut').value;
+  const weight = parseFloat(document.getElementById('f-weight').value);
+  const costUsd= parseFloat(document.getElementById('f-cost-usd').value);
+  const rate   = parseFloat(document.getElementById('f-rate').value) || 83;
+
+  if (!weight || weight <= 0) return alert('Please enter a valid weight.');
+  if (!costUsd || costUsd <= 0) return alert('Please enter a cost per carat.');
+
+  const status   = document.getElementById('f-status').value;
+  const soldPrice= parseFloat(document.getElementById('f-sold-price').value) || 0;
+
+  if (status === 'Sold' && soldPrice <= 0) return alert('Please enter the sold price.');
+
+  const stone = {
+    id:              editingId || nextId(),
+    cut,
+    cutDetail:       document.getElementById('f-cut-detail').value.trim(),
+    weight,
+    color:           document.getElementById('f-color').value,
+    clarity:         document.getElementById('f-clarity').value,
+    costPerCaratUSD: costUsd,
+    usdToInr:        rate,
+    totalCostINR:    Math.round(weight * costUsd * rate),
+    certNumber:      document.getElementById('f-cert-num').value.trim(),
+    certType:        document.getElementById('f-cert-type').value,
+    status,
+    location:        document.getElementById('f-location').value.trim(),
+    settingType:     status !== 'Ordered' ? document.getElementById('f-setting').value : '',
+    soldPrice:       status === 'Sold' ? soldPrice : 0,
+    soldDate:        status === 'Sold' ? document.getElementById('f-sold-date').value : '',
+    customerName:    status === 'Sold' ? document.getElementById('f-customer').value.trim() : '',
+    dateAdded:       editingId ? (stones.find(s => s.id === editingId) || {}).dateAdded || today() : today(),
+    notes:           document.getElementById('f-notes').value.trim(),
+  };
+
+  if (editingId) {
+    const idx = stones.findIndex(s => s.id === editingId);
+    if (idx >= 0) stones[idx] = stone;
+  } else {
+    stones.push(stone);
+  }
+
+  save();
+  clearForm();
+  renderTable();
+  updateStats();
+}
+
+/* ══════════════════════════════════════════
+   EDIT
+══════════════════════════════════════════ */
+function editStone(id) {
+  const s = stones.find(x => x.id === id);
+  if (!s) return;
+  editingId = id;
+
+  document.getElementById('form-title').textContent = 'Edit Stone';
+  document.getElementById('edit-hint').style.display = 'block';
+  document.getElementById('f-id').value        = s.id;
+  document.getElementById('f-cut').value       = s.cut;
+  document.getElementById('f-cut-detail').value= s.cutDetail || '';
+  document.getElementById('f-weight').value    = s.weight;
+  document.getElementById('f-color').value     = s.color;
+  document.getElementById('f-clarity').value   = s.clarity;
+  document.getElementById('f-cost-usd').value  = s.costPerCaratUSD;
+  document.getElementById('f-rate').value      = s.usdToInr;
+  document.getElementById('f-cert-num').value  = s.certNumber;
+  document.getElementById('f-cert-type').value = s.certType;
+  document.getElementById('f-status').value    = s.status;
+  document.getElementById('f-location').value  = s.location;
+  document.getElementById('f-setting').value   = s.settingType || '';
+  document.getElementById('f-sold-price').value= s.soldPrice || '';
+  document.getElementById('f-sold-date').value = s.soldDate || '';
+  document.getElementById('f-customer').value  = s.customerName || '';
+  document.getElementById('f-notes').value     = s.notes || '';
+
+  onCutChange();
+  onStatusChange();
+  calcCost();
+  document.getElementById('panel').scrollTop = 0;
+}
+
+/* ══════════════════════════════════════════
+   DELETE
+══════════════════════════════════════════ */
+function deleteStone(id) {
+  if (!confirm('Delete stone ' + id + '? This cannot be undone.')) return;
+  stones = stones.filter(s => s.id !== id);
+  if (editingId === id) clearForm();
+  save();
+  renderTable();
+  updateStats();
+}
+
+/* ══════════════════════════════════════════
+   CLEAR FORM
+══════════════════════════════════════════ */
+function clearForm() {
+  editingId = null;
+  document.getElementById('form-title').textContent = 'Add Stone';
+  document.getElementById('edit-hint').style.display = 'none';
+  document.getElementById('f-id').value         = '';
+  document.getElementById('f-cut').value        = 'Portuguese';
+  document.getElementById('f-cut-detail').value = '';
+  document.getElementById('f-weight').value     = '';
+  document.getElementById('f-color').value      = 'E';
+  document.getElementById('f-clarity').value    = 'VS1';
+  document.getElementById('f-cost-usd').value   = '';
+  document.getElementById('f-rate').value       = '83';
+  document.getElementById('f-total-inr').value  = '';
+  document.getElementById('f-cert-num').value   = '';
+  document.getElementById('f-cert-type').value  = 'IGI';
+  document.getElementById('f-status').value     = 'Ordered';
+  document.getElementById('f-location').value   = '';
+  document.getElementById('f-setting').value    = 'Solitaire Ring';
+  document.getElementById('f-sold-price').value = '';
+  document.getElementById('f-sold-date').value  = '';
+  document.getElementById('f-customer').value   = '';
+  document.getElementById('f-margin-display').value = '';
+  document.getElementById('f-notes').value      = '';
+  toggle('f-cut-detail-wrap', false);
+  toggle('f-setting-wrap',    false);
+  toggle('f-sold-wrap',       false);
+}
+
+/* ══════════════════════════════════════════
+   FILTER & TABLE RENDER
+══════════════════════════════════════════ */
+function setTab(btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeTab = btn.dataset.status;
+  renderTable();
+}
+
+function renderTable() {
+  const cutFilter  = document.getElementById('cut-filter').value;
+  const searchVal  = document.getElementById('search-input').value.toLowerCase().trim();
+
+  let filtered = stones.filter(s => {
+    if (activeTab !== 'All' && s.status !== activeTab) return false;
+    if (cutFilter && s.cut !== cutFilter) return false;
+    if (searchVal) {
+      const hay = [s.id, s.cut, s.cutDetail, s.customerName, s.location, s.certNumber]
+        .join(' ').toLowerCase();
+      if (!hay.includes(searchVal)) return false;
+    }
+    return true;
+  });
+
+  const tbody = document.getElementById('table-body');
+  const empty = document.getElementById('empty-state');
+
+  if (!filtered.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = filtered.map(s => {
+    const cutLabel = s.cut === 'Other' && s.cutDetail ? s.cutDetail : s.cut;
+    const grade    = s.color + ' / ' + s.clarity;
+    const pill     = pillClass(s.status);
+    const pillText = s.status;
+    const costFmt  = s.totalCostINR > 0 ? '₹' + fmt(s.totalCostINR) : '—';
+    const soldFmt  = s.soldPrice > 0    ? '₹' + fmt(s.soldPrice)     : '—';
+
+    let marginHtml = '<span class="margin-na">—</span>';
+    if (s.soldPrice > 0 && s.totalCostINR > 0) {
+      const m = ((s.soldPrice - s.totalCostINR) / s.soldPrice * 100).toFixed(1);
+      const cls = m >= 0 ? 'margin-pos' : 'margin-neg';
+      marginHtml = `<span class="${cls}">${m >= 0 ? '+' : ''}${m}%</span>`;
+    }
+
+    return `<tr>
+      <td class="td-id">${s.id}</td>
+      <td class="td-cut">${esc(cutLabel)}</td>
+      <td>${s.weight} ct</td>
+      <td class="td-grade">${grade}</td>
+      <td class="right td-cost">${costFmt}</td>
+      <td class="center"><span class="pill ${pill}">${pillText}</span></td>
+      <td class="td-setting">${esc(s.settingType || '—')}</td>
+      <td class="right">${soldFmt}</td>
+      <td class="right">${marginHtml}</td>
+      <td class="center">
+        <div class="actions">
+          <button class="icon-btn edit" onclick="editStone('${s.id}')" title="Edit">✎</button>
+          <button class="icon-btn del"  onclick="deleteStone('${s.id}')" title="Delete">×</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function pillClass(status) {
+  if (status === 'Ordered')    return 'pill-ordered';
+  if (status === 'In Hand')    return 'pill-inhand';
+  if (status === 'In Setting') return 'pill-insetting';
+  if (status === 'Sold')       return 'pill-sold';
+  return 'pill-ordered';
+}
+
+/* ══════════════════════════════════════════
+   STATS
+══════════════════════════════════════════ */
+function updateStats() {
+  const total    = stones.length;
+  const unsold   = stones.filter(s => s.status !== 'Sold');
+  const sold     = stones.filter(s => s.status === 'Sold');
+
+  const invVal   = unsold.reduce((a, s) => a + s.totalCostINR, 0);
+  const soldVal  = sold.reduce((a, s) => a + s.soldPrice, 0);
+
+  const margins = sold
+    .filter(s => s.soldPrice > 0 && s.totalCostINR > 0)
+    .map(s => (s.soldPrice - s.totalCostINR) / s.soldPrice * 100);
+  const avgMargin = margins.length
+    ? (margins.reduce((a, b) => a + b, 0) / margins.length).toFixed(1)
+    : null;
+
+  document.getElementById('stat-total').textContent     = total || '—';
+  document.getElementById('stat-total-sub').textContent = total === 1 ? '1 stone' : total + ' stones';
+  document.getElementById('stat-inv-val').textContent   = invVal > 0 ? '₹' + fmtK(invVal) : '—';
+  document.getElementById('stat-sold-val').textContent  = soldVal > 0 ? '₹' + fmtK(soldVal) : '—';
+  document.getElementById('stat-sold-sub').textContent  = sold.length
+    ? sold.length + ' stone' + (sold.length > 1 ? 's' : '') + ' sold'
+    : 'revenue';
+
+  const mEl = document.getElementById('stat-margin');
+  if (avgMargin !== null) {
+    mEl.textContent  = (avgMargin >= 0 ? '+' : '') + avgMargin + '%';
+    mEl.style.color  = avgMargin >= 0 ? '#4caa74' : '#c07070';
+  } else {
+    mEl.textContent = '—';
+    mEl.style.color = '';
+  }
+}
+
+/* ══════════════════════════════════════════
+   EXPORT CSV
+══════════════════════════════════════════ */
+function exportCSV() {
+  if (!stones.length) return alert('No stones to export.');
+  const cols = [
+    'ID','Cut','Cut Detail','Weight (ct)','Color','Clarity',
+    'Cost/ct (USD)','USD→INR Rate','Total Cost (INR)',
+    'Cert #','Cert Type','Status','Location','Setting Type',
+    'Sold Price (INR)','Sold Date','Customer','Date Added','Notes'
+  ];
+  const rows = stones.map(s => [
+    s.id, s.cut, s.cutDetail, s.weight, s.color, s.clarity,
+    s.costPerCaratUSD, s.usdToInr, s.totalCostINR,
+    s.certNumber, s.certType, s.status, s.location, s.settingType,
+    s.soldPrice || '', s.soldDate || '', s.customerName || '',
+    s.dateAdded, s.notes
+  ].map(v => '"' + String(v || '').replace(/"/g, '""') + '"').join(','));
+
+  const csv = [cols.join(','), ...rows].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'rfc-inventory-' + today() + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ══════════════════════════════════════════
+   THEME
+══════════════════════════════════════════ */
+function toggleMode() {
+  const light = document.body.classList.toggle('light');
+  document.getElementById('mode-toggle').textContent = light ? '◐' : '☀︎';
+  localStorage.setItem('rfc_theme', light ? 'light' : 'dark');
+}
+
+/* ══════════════════════════════════════════
+   UTILITIES
+══════════════════════════════════════════ */
+function fmt(n) {
+  return Math.round(n).toLocaleString('en-IN');
+}
+function fmtK(n) {
+  if (n >= 1e5) return (n / 1e5).toFixed(1) + 'L';
+  return fmt(n);
+}
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
+function esc(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+load();
+if (localStorage.getItem('rfc_theme') === 'light') {
+  document.body.classList.add('light');
+  document.getElementById('mode-toggle').textContent = '◐';
+}
+renderTable();
+updateStats();
+</script>
+</body>
+</html>
