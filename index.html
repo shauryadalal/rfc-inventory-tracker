@@ -351,12 +351,13 @@ tbody td.center { text-align: center; }
       <option value="Criss">Criss Cut</option>
       <option value="Ashoka">Ashoka Cut</option>
       <option value="Dutch Marquise">Dutch Marquise</option>
-      <option value="Other">Other</option>
+      <option value="Other">Other (custom)…</option>
     </select>
   </div>
   <div class="field-group cond-field" id="f-cut-detail-wrap">
-    <label>Cut Detail</label>
-    <input type="text" id="f-cut-detail" placeholder="e.g. Old Mine, Hexagon…">
+    <label>Cut Name <span style="font-size:9px;color:var(--muted2);text-transform:none;letter-spacing:0;font-weight:400">— saved for future use</span></label>
+    <input type="text" id="f-cut-detail" placeholder="e.g. Old Mine, Hexagon…" list="custom-cuts-list" autocomplete="off">
+    <datalist id="custom-cuts-list"></datalist>
   </div>
 
   <div class="field-row-3">
@@ -413,6 +414,7 @@ tbody td.center { text-align: center; }
         <option value="IGI">IGI</option>
         <option value="AIGS">AIGS</option>
         <option value="GIA">GIA</option>
+        <option value="SGL">SGL</option>
         <option value="None">None</option>
       </select>
     </div>
@@ -547,7 +549,8 @@ tbody td.center { text-align: center; }
 /* ══════════════════════════════════════════
    STATE
 ══════════════════════════════════════════ */
-const STORAGE_KEY = 'rfc_stones';
+const STORAGE_KEY       = 'rfc_stones';
+const CUSTOM_CUTS_KEY   = 'rfc_custom_cuts';
 let stones = [];
 let editingId = null;
 let activeTab = 'All';
@@ -559,6 +562,47 @@ function load() {
 }
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(stones));
+}
+
+/* ── Custom cuts ── */
+function loadCustomCuts() {
+  try {
+    return JSON.parse(localStorage.getItem(CUSTOM_CUTS_KEY) || '[]');
+  } catch(e) { return []; }
+}
+function saveCustomCut(name) {
+  if (!name) return;
+  const cuts = loadCustomCuts();
+  if (cuts.includes(name)) return;
+  cuts.push(name);
+  localStorage.setItem(CUSTOM_CUTS_KEY, JSON.stringify(cuts));
+  refreshCustomCutsUI();
+}
+function refreshCustomCutsUI() {
+  const cuts = loadCustomCuts();
+  const select = document.getElementById('f-cut');
+  // Remove any previously injected custom options (they start with 'custom::')
+  Array.from(select.options).forEach(o => {
+    if (o.value.startsWith('custom::')) o.remove();
+  });
+  // Inject saved custom cuts as selectable options above "Other"
+  const otherOpt = select.querySelector('option[value="Other"]');
+  if (cuts.length) {
+    const sep = document.createElement('option');
+    sep.disabled = true;
+    sep.text = '── Saved cuts ──';
+    sep.value = '__sep__';
+    select.insertBefore(sep, otherOpt);
+    cuts.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = 'custom::' + name;
+      opt.text  = name;
+      select.insertBefore(opt, otherOpt);
+    });
+  }
+  // Populate datalist
+  const dl = document.getElementById('custom-cuts-list');
+  dl.innerHTML = cuts.map(c => `<option value="${esc(c)}">`).join('');
 }
 
 /* ══════════════════════════════════════════
@@ -607,7 +651,15 @@ function onStatusChange() {
   calcCost();
 }
 function onCutChange() {
-  toggle('f-cut-detail-wrap', document.getElementById('f-cut').value === 'Other');
+  const val = document.getElementById('f-cut').value;
+  if (val.startsWith('custom::')) {
+    // Pre-fill the detail field with the saved name and show it
+    document.getElementById('f-cut-detail').value = val.replace('custom::', '');
+    toggle('f-cut-detail-wrap', true);
+  } else {
+    toggle('f-cut-detail-wrap', val === 'Other');
+    if (val !== 'Other') document.getElementById('f-cut-detail').value = '';
+  }
 }
 function toggle(id, show) {
   document.getElementById(id).classList.toggle('visible', show);
@@ -617,7 +669,9 @@ function toggle(id, show) {
    SAVE
 ══════════════════════════════════════════ */
 function saveStone() {
-  const cut    = document.getElementById('f-cut').value;
+  let cut = document.getElementById('f-cut').value;
+  // Normalize custom:: prefix — treat same as "Other"
+  if (cut.startsWith('custom::')) cut = 'Other';
   const weight = parseFloat(document.getElementById('f-weight').value);
   const costUsd= parseFloat(document.getElementById('f-cost-usd').value);
   const rate   = parseFloat(document.getElementById('f-rate').value) || 83;
@@ -651,6 +705,9 @@ function saveStone() {
     dateAdded:       editingId ? (stones.find(s => s.id === editingId) || {}).dateAdded || today() : today(),
     notes:           document.getElementById('f-notes').value.trim(),
   };
+
+  // Persist custom cut name for future use
+  if (stone.cut === 'Other' && stone.cutDetail) saveCustomCut(stone.cutDetail);
 
   if (editingId) {
     const idx = stones.findIndex(s => s.id === editingId);
@@ -920,6 +977,7 @@ if (localStorage.getItem('rfc_theme') === 'light') {
   document.body.classList.add('light');
   document.getElementById('mode-toggle').textContent = '◐';
 }
+refreshCustomCutsUI();
 renderTable();
 updateStats();
 </script>
